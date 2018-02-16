@@ -1,6 +1,7 @@
 package org.telegram.updateshandlers;
 
 import java.io.BufferedReader;
+import org.telegram.services.*;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -81,13 +82,6 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 	private void handleIncomingMessage(Message message) throws TelegramApiException {
 		int state = 1;
 		if (message.getChatId().toString() != null) {
-//			if (message.getText().equals("天气")) {
-//				if(weatherState.size() > 0 && weatherState.get(message.getChatId().toString())>0)
-//					state = weatherState.get(message.getChatId().toString());
-//			} else if(message.getText().equals("物流")){
-//				if(logisticsState.size() > 0 && logisticsState.get(message.getChatId().toString())>0)
-//					state = logisticsState.get(message.getChatId().toString());
-//			};
 			if(weatherState.size() > 0 && weatherState.get(message.getChatId().toString())>0)
 				state = weatherState.get(message.getChatId().toString());
 		}
@@ -100,7 +94,6 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		case LOGISTICS_CURRENT:
 		case LOGISTICS_NEW:
 			sendMessageRequest = messageOnCurrentLogistics(message, "", state);
-			// 物流
 			break;
 		case WEATHER_CURRENT:
 		case WEATHER_NEW:
@@ -144,15 +137,7 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 	}
 
 	private static SendMessage onLogisticsChoosen(Message message, String language) {
-//		SendMessage sendMessage = new SendMessage();
-//		weatherState.put(message.getChatId().toString(), LOGISTICS_CURRENT);
-//		sendMessage.setChatId(message.getChatId());
-//		sendMessage.setText("查询物流：");
-//		return sendMessage;
-		
-		
 		ForceReplyKeyboard forceReplyKeyboard = getForceReply();
-
 		SendMessage sendMessage = new SendMessage();
 		sendMessage.enableMarkdown(true);
 		sendMessage.setChatId(message.getChatId().toString());
@@ -160,8 +145,8 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		sendMessage.setReplyMarkup(forceReplyKeyboard);
 		sendMessage.setText("支持商家：BTWL(百世快运) DBL(德邦) EMS(EMS) ZTO(中通快递)" + "\n"
 				+ "HHTT(天天快递) JGSD(京广速递) HTKY(百世快递) JTKD(捷特快递)" + "\n"
-				+ "STO(申通快递) YD(韵达快递) YTO(圆通速递) SF(顺丰快递) "+ 
-		"\n" + "格式：商家字母(大写) 订单号");
+				+ "STO(申通快递) YD(韵达快递) YTO(圆通速递) SF(顺丰快递) "+ "\n"
+				+ "格式：商家字母(大写)+空格+订单号");
 
 		weatherState.put(message.getChatId().toString(), LOGISTICS_CURRENT);
 		return sendMessage;
@@ -270,7 +255,7 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		sendMessage.setChatId(chatId.toString());
 		sendMessage.setReplyToMessageId(messageId);
 		sendMessage.setReplyMarkup(forceReplyKeyboard);
-		sendMessage.setText("格式：商家字母(大写) 订单号");
+		sendMessage.setText("格式：商家字母(大写)+空格+订单号");
 
 		weatherState.put(chatId.toString(), LOGISTICS_CURRENT);
 		return sendMessage;
@@ -280,18 +265,6 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		ForceReplyKeyboard forceReplyKeyboard = new ForceReplyKeyboard();
 		forceReplyKeyboard.setSelective(true);
 		return forceReplyKeyboard;
-	}
-
-	private static SendMessage messageOnWeather(Message message, String language, int state) {
-		if (message.isReply()) {
-			return onWeatherReceived(message.getChatId(), message.getFrom().getId(), message.getMessageId(),
-					message.getText(), language);
-		} else {
-			return onWeatherReceived(message.getChatId(), message.getFrom().getId(), message.getMessageId(),
-					message.getText(), language);
-
-			// return sendMessageDefault(message, language);
-		}
 	}
 
 	private static SendMessage onWeatherReceived(Long chatId, Integer userId, Integer messageId, String text,
@@ -308,158 +281,25 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		return sendMessageRequest;
 	}
 
-	private static String urlEncoder(String str, String charset) throws UnsupportedEncodingException {
-		return URLEncoder.encode(str, charset);
-	}
-
-	private static String encrypt(String content, String keyValue, String charset) throws Exception {
-		if (keyValue != null) {
-			return base64(MD5(content + keyValue, charset), charset);
-		}
-		return base64(MD5(content, charset), charset);
-	}
-
-	private static String MD5(String str, String charset) throws Exception {
-		MessageDigest md = MessageDigest.getInstance("MD5");
-		md.update(str.getBytes(charset));
-		byte[] result = md.digest();
-		StringBuilder sb = new StringBuilder(32);
-		for (int i = 0; i < result.length; i++) {
-			int val = result[i] & 0xff;
-			if (val <= 0xf) {
-				sb.append("0");
-			}
-			sb.append(Integer.toHexString(val));
-		}
-		return sb.toString().toLowerCase();
-	}
-
-	private static String base64(String str, String charset) throws UnsupportedEncodingException {
-		return base64Encode(str.getBytes(charset));
-	}
-
-	public static String base64Encode(byte[] data) {
-		StringBuilder sb = new StringBuilder();
-		int len = data.length;
-		int i = 0;
-		int b1, b2, b3;
-		while (i < len) {
-			b1 = data[i++] & 0xff;
-			if (i == len) {
-				sb.append(base64EncodeChars[b1 >>> 2]);
-				sb.append(base64EncodeChars[(b1 & 0x3) << 4]);
-				sb.append("==");
-				break;
-			}
-			b2 = data[i++] & 0xff;
-			if (i == len) {
-				sb.append(base64EncodeChars[b1 >>> 2]);
-				sb.append(base64EncodeChars[((b1 & 0x03) << 4) | ((b2 & 0xf0) >>> 4)]);
-				sb.append(base64EncodeChars[(b2 & 0x0f) << 2]);
-				sb.append("=");
-				break;
-			}
-			b3 = data[i++] & 0xff;
-			sb.append(base64EncodeChars[b1 >>> 2]);
-			sb.append(base64EncodeChars[((b1 & 0x03) << 4) | ((b2 & 0xf0) >>> 4)]);
-			sb.append(base64EncodeChars[((b2 & 0x0f) << 2) | ((b3 & 0xc0) >>> 6)]);
-			sb.append(base64EncodeChars[b3 & 0x3f]);
-		}
-		return sb.toString();
-	}
-
-	private static char[] base64EncodeChars = new char[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-			'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
-			'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1',
-			'2', '3', '4', '5', '6', '7', '8', '9', '+', '/' };
-	private static String sendPost(String url, Map<String, String> params) {
-        OutputStreamWriter out = null;
-        BufferedReader in = null;        
-        StringBuilder result = new StringBuilder(); 
-        try {
-            URL realUrl = new URL(url);
-            HttpURLConnection conn =(HttpURLConnection) realUrl.openConnection();
-            // 发送POST请求必须设置如下两行
-            conn.setDoOutput(true);
-            conn.setDoInput(true);
-            // POST方法
-            conn.setRequestMethod("POST");
-            // 设置通用的请求属性
-            conn.setRequestProperty("accept", "*/*");
-            conn.setRequestProperty("connection", "Keep-Alive");
-            conn.setRequestProperty("user-agent",
-                    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1;SV1)");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.connect();
-            // 获取URLConnection对象对应的输出流
-            out = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-            // 发送请求参数            
-            if (params != null) {
-		          StringBuilder param = new StringBuilder(); 
-		          for (Map.Entry<String, String> entry : params.entrySet()) {
-		        	  if(param.length()>0){
-		        		  param.append("&");
-		        	  }	        	  
-		        	  param.append(entry.getKey());
-		        	  param.append("=");
-		        	  param.append(entry.getValue());		        	  
-		        	  //System.out.println(entry.getKey()+":"+entry.getValue());
-		          }
-		          //System.out.println("param:"+param.toString());
-		          out.write(param.toString());
-            }
-            // flush输出流的缓冲
-            out.flush();
-            // 定义BufferedReader输入流来读取URL的响应
-            in = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream(), "UTF-8"));
-            String line;
-            while ((line = in.readLine()) != null) {
-                result.append(line);
-            }
-        } catch (Exception e) {            
-            e.printStackTrace();
-        }
-        //使用finally块来关闭输出流、输入流
-        finally{
-            try{
-                if(out!=null){
-                    out.close();
-                }
-                if(in!=null){
-                    in.close();
-                }
-            }
-            catch(IOException ex){
-                ex.printStackTrace();
-            }
-        }
-        return result.toString();
-    }
-
 	private static SendMessage onLogisticsReceived(Long chatId, Integer userId, Integer messageId, String text,
 			String language){
 		String[] strs = text.split(" ");
-//		Optional<ExpressCode> expressCode = ExpressCode.byName(strs[0]);
-//		String expCode = expressCode.get().name();
 		String requestData = "{'OrderCode':'','ShipperCode':'" + strs[0] + "','LogisticCode':'" + strs[1] + "'}";
 		
         Map<String, String> params = new HashMap<>();
         String response = null;
         try {
-        	params.put("RequestData", urlEncoder(requestData, "UTF-8"));
+        	params.put("RequestData", LogisticsService.urlEncoder(requestData, "UTF-8"));
             params.put("EBusinessID", "1322588");
             params.put("RequestType", "1002");
-            String dataSign = encrypt(requestData, "b4132fd1-9d17-4098-a2b7-c62929b04fd8", "UTF-8");
-            params.put("DataSign", urlEncoder(dataSign, "UTF-8"));
+            String dataSign = LogisticsService.encrypt(requestData, LogisticsService.LogisticsApiKey, "UTF-8");
+            params.put("DataSign", LogisticsService.urlEncoder(dataSign, "UTF-8"));
             params.put("DataType", "2");
-            response = sendPost("http://api.kdniao.cc/Ebusiness/EbusinessOrderHandle.aspx", params);	
+            response = LogisticsService.sendPost(LogisticsService.LogisticsApiURL, params);	
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
         
-		
-		//String logistics =  (text, language);
 		SendMessage sendMessageRequest = new SendMessage();
 		sendMessageRequest.enableMarkdown(true);
 		sendMessageRequest.setReplyMarkup(getMainMenuKeyboard(language));
@@ -470,10 +310,6 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		weatherState.put(chatId.toString(), MAINMENU);
 		return sendMessageRequest;
 	}
-
-	// private static String fetchLogisticsCurrent(String city, String language) {
-	//
-	// }
 
 	private static String fetchWeatherCurrent(String city, String language) {
 		CloseableHttpClient client = HttpClientBuilder.create().setSSLHostnameVerifier(new NoopHostnameVerifier())
@@ -502,10 +338,8 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 			}
 
 		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
