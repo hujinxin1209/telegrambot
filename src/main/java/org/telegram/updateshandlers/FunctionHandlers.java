@@ -26,8 +26,10 @@ import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.telegram.BotConfig;
+import org.telegram.LogisticsEnum;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
@@ -143,10 +145,7 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		sendMessage.setChatId(message.getChatId().toString());
 		sendMessage.setReplyToMessageId(message.getMessageId());
 		sendMessage.setReplyMarkup(forceReplyKeyboard);
-		sendMessage.setText("支持商家：BTWL(百世快运) DBL(德邦) EMS(EMS) ZTO(中通快递)" + "\n"
-				+ "HHTT(天天快递) JGSD(京广速递) HTKY(百世快递) JTKD(捷特快递)" + "\n"
-				+ "STO(申通快递) YD(韵达快递) YTO(圆通速递) SF(顺丰快递) "+ "\n"
-				+ "格式：商家字母(大写)+空格+订单号");
+		sendMessage.setText("支持china大部分快递,请输入订单号！");
 
 		weatherState.put(message.getChatId().toString(), LOGISTICS_CURRENT);
 		return sendMessage;
@@ -255,7 +254,7 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		sendMessage.setChatId(chatId.toString());
 		sendMessage.setReplyToMessageId(messageId);
 		sendMessage.setReplyMarkup(forceReplyKeyboard);
-		sendMessage.setText("格式：商家字母(大写)+空格+订单号");
+		sendMessage.setText("输入格式：订单号");
 
 		weatherState.put(chatId.toString(), LOGISTICS_CURRENT);
 		return sendMessage;
@@ -283,22 +282,7 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 
 	private static SendMessage onLogisticsReceived(Long chatId, Integer userId, Integer messageId, String text,
 			String language){
-		String[] strs = text.split(" ");
-		String requestData = "{'OrderCode':'','ShipperCode':'" + strs[0] + "','LogisticCode':'" + strs[1] + "'}";
-		
-        Map<String, String> params = new HashMap<>();
-        String response = null;
-        try {
-        	params.put("RequestData", LogisticsService.urlEncoder(requestData, "UTF-8"));
-            params.put("EBusinessID", "1322588");
-            params.put("RequestType", "1002");
-            String dataSign = LogisticsService.encrypt(requestData, LogisticsService.LogisticsApiKey, "UTF-8");
-            params.put("DataSign", LogisticsService.urlEncoder(dataSign, "UTF-8"));
-            params.put("DataType", "2");
-            response = LogisticsService.sendPost(LogisticsService.LogisticsApiURL, params);	
-		} catch(Exception e) {
-			e.printStackTrace();
-		}
+        String response = getResponseByCode(text);
         
 		SendMessage sendMessageRequest = new SendMessage();
 		sendMessageRequest.enableMarkdown(true);
@@ -310,7 +294,43 @@ public class FunctionHandlers extends TelegramLongPollingBot {
 		weatherState.put(chatId.toString(), MAINMENU);
 		return sendMessageRequest;
 	}
-
+	
+	private static String getResponseByCode(String text) {
+		String requestData = "";
+		String response = "";
+		Map<String, String> params = new HashMap<>();
+//		long startTime = System.currentTimeMillis();
+		for(LogisticsEnum logisticsEnum : LogisticsEnum.values()) {
+			
+			requestData = "{'OrderCode':'','ShipperCode':'" + logisticsEnum.getCode() + "','LogisticCode':'" + text + "'}";
+	        try {
+	        		params.put("RequestData", LogisticsService.urlEncoder(requestData, "UTF-8"));
+	            params.put("EBusinessID", "1322588");
+	            params.put("RequestType", "1002");
+	            String dataSign = LogisticsService.encrypt(requestData, LogisticsService.LogisticsApiKey, "UTF-8");
+	            params.put("DataSign", LogisticsService.urlEncoder(dataSign, "UTF-8"));
+	            params.put("DataType", "2");
+	            response = LogisticsService.sendPost(LogisticsService.LogisticsApiURL, params);	
+	            JSONObject jsonObject = new JSONObject(response);
+	            JSONArray jsonArray = (JSONArray) jsonObject.get("Traces");
+	            if(jsonArray.length() > 0) {
+	            		response = "快递：" + logisticsEnum.getValue() + "\n";
+	            		for(int i = 0; i < jsonArray.length(); i++) {
+	            			JSONObject obj = (JSONObject) jsonArray.get(i);  
+	            			response += obj.getString("AcceptStation") + "\n" + "时间：" + obj.getString("AcceptTime") + "\n";
+	            		}
+	            		return response;
+	            }
+	        } catch(Exception e) {
+				e.printStackTrace();
+			}
+//	        long endTime = System.currentTimeMillis();
+//	        System.out.println("程序运行时间：" + (endTime - startTime)+ "ms");
+		}
+		
+		return "我都查不到，快递已消失在地球！";
+	}
+	
 	private static String fetchWeatherCurrent(String city, String language) {
 		CloseableHttpClient client = HttpClientBuilder.create().setSSLHostnameVerifier(new NoopHostnameVerifier())
 				.build();
